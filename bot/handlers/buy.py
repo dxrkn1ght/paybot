@@ -1,6 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from states import BuyStates
 from keyboards import product_types_kb, products_inline
 from api import get_products, create_order

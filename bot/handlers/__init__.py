@@ -1,3 +1,4 @@
+# handlers/__init__.py
 from aiogram import Router
 from .start import router as start_router
 from .buy import router as buy_router
