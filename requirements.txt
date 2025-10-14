@@ -1,0 +1,6 @@
+Django>=4.2
+djangorestframework
+python-dotenv
+aiogram==3.1.1
+requests
+Pillow
