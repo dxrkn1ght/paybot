@@ -1,8 +1,10 @@
 from aiogram import Router, types
-from aiogram.filters import CommandStart
+from aiogram.filters import Command
+from keyboards import main_menu
+from config import OWNER_CHAT_ID
 
-dp = Router()
+router = Router()
 
-@dp.message(CommandStart())
-async def start_cmd(message: types.Message):
-    await message.answer("👋 Salom! Bot muvaffaqiyatli ishga tushdi ✅")
+@router.message(Command("start"))
+async def cmd_start(message: types.Message):
+    await message.answer("👋 Salom! SunLite botga xush kelibsiz.\nQuyidagi menyudan tanlang:", reply_markup=main_menu)

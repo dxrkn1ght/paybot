@@ -1,9 +1,11 @@
 from aiogram.fsm.state import StatesGroup, State
-class SetupStates(StatesGroup):
-    asking_nick = State()
+
 class BuyStates(StatesGroup):
-    choosing_coin_amount = State()
-    confirming_purchase = State()
+    waiting_nick = State()
+    selecting_product = State()
+    entering_amount = State()
+    waiting_screenshot = State()
+
 class TopUpStates(StatesGroup):
     entering_amount = State()
     waiting_screenshot = State()
