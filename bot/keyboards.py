@@ -1,12 +1,17 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton("🎒 Mahsulotlar"), KeyboardButton("💳 Hisobni to'ldirish")],
-        [KeyboardButton("📦 Buyurtmalarim"), KeyboardButton("⚙️ Til / Settings")],
+        [KeyboardButton(text="🎒 Mahsulotlar")],
+        [KeyboardButton(text="💳 Hisobni to'ldirish")],
+        [KeyboardButton(text="📦 Buyurtmalarim")],
+        [KeyboardButton(text="⚙️ Til / Settings")],
     ],
     resize_keyboard=True
 )
+
 
 # After selecting product type (coin or rank)
 product_types_kb = InlineKeyboardMarkup(

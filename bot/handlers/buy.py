@@ -1,5 +1,5 @@
 from aiogram import Router, types, F
-from aiogram.filters import Text
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from states import BuyStates
 from keyboards import product_types_kb, products_inline
@@ -8,49 +8,98 @@ from config import OWNER_CHAT_ID
 
 router = Router()
 
-@router.message(Text("🎒 Mahsulotlar"))
-async def products_menu(message: types.Message):
-    await message.answer("Qaysi turdagi mahsulotni ko'rmoqchisiz?", reply_markup=product_types_kb)
+# --- Mahsulotlar bo‘limi ---
+@router.message(F.text == "🎒 Mahsulotlar")
+async def show_products(message: Message):
+    await message.answer(
+        "Qaysi turdagi mahsulotni ko‘rmoqchisiz?",
+        reply_markup=product_types_kb
+    )
 
+
+# --- Coinlar ---
 @router.callback_query(F.data == "type_coin")
-async def type_coin(call: types.CallbackQuery):
-    await call.message.answer("Coinlar ro'yxati:")
-    prods = [p for p in get_products() if p['type']=='coin']
-    await call.message.answer("Tanlang:", reply_markup=products_inline(prods))
+async def type_coin(call: CallbackQuery):
+    await call.message.answer("💰 Coin:")
+    prods = [p for p in get_products() if p['type'] == 'coin']
+    await call.message.answer(
+        "Tanlang:",
+        reply_markup=products_inline(prods)
+    )
 
+
+# --- Ranklar ---
 @router.callback_query(F.data == "type_rank")
-async def type_rank(call: types.CallbackQuery):
-    await call.message.answer("Ranklar ro'yxati:")
-    prods = [p for p in get_products() if p['type']=='rank']
-    await call.message.answer("Tanlang:", reply_markup=products_inline(prods))
+async def type_rank(call: CallbackQuery):
+    await call.message.answer("🏆 Rank:")
+    prods = [p for p in get_products() if p['type'] == 'rank']
+    await call.message.answer(
+        "Tanlang:",
+        reply_markup=products_inline(prods)
+    )
 
+
+# --- Buyurtma boshlangan payt ---
 @router.callback_query(F.data.startswith("buy_"))
-async def buy_product(call: types.CallbackQuery, state: FSMContext):
-    code = call.data.split("buy_",1)[1]
+async def buy_product(call: CallbackQuery, state: FSMContext):
+    code = call.data.split("buy_", 1)[1]
     prods = get_products()
-    prod = next((p for p in prods if p['code']==code), None)
+    prod = next((p for p in prods if p['code'] == code), None)
+
     if not prod:
-        await call.message.answer("Mahsulot topilmadi.")
+        await call.message.answer("❌ Mahsulot topilmadi.")
         return
+
     await state.update_data(selected_product=prod)
-    await call.message.answer(f"✅ Siz {prod['name']} ({prod['price']} so'm) ni tanladingiz.\nIltimos serverdagi nickingizni kiriting:")
+    await call.message.answer(
+        f"✅ Siz {prod['name']} ({prod['price']} so‘m) ni tanladingiz.\n"
+        "Iltimos, serverdagi nickingizni kiriting:"
+    )
     await state.set_state(BuyStates.waiting_nick)
 
+
+# --- Nick kiritilgandan so‘ng ---
 @router.message(BuyStates.waiting_nick)
-async def ask_nick(message: types.Message, state: FSMContext):
+async def ask_nick(message: Message, state: FSMContext):
     nick = message.text.strip()
     data = await state.get_data()
     prod = data.get("selected_product")
-    # create order record on backend
-    order_payload = {"user_id": message.from_user.id, "user_nick": nick, "product_code": prod['code'], "amount": prod['price']}
+
+    if not prod:
+        await message.answer("❌ Xatolik: mahsulot tanlanmagan.")
+        await state.clear()
+        return
+
+    # Backendda buyurtma yaratish
+    order_payload = {
+        "user_id": message.from_user.id,
+        "user_nick": nick,
+        "product_code": prod['code'],
+        "amount": prod['price']
+    }
+
     ok, res = create_order(order_payload)
+
     if ok:
-        await message.answer("Buyurtma yaratilidi. To'lovni amalga oshiring va to'lovni tasdiqlovchi skrinshot yuboring.\nAdmin sizning to'lovni tekshiradi.")
-        # notify admin in Telegram (by OWNER_CHAT_ID)
+        await message.answer(
+            "✅ Buyurtma yaratildi.\n"
+            "To‘lovni amalga oshiring va tasdiqlovchi skrinshotni yuboring.\n"
+            "Admin sizning to‘lovni tekshiradi."
+        )
+
+        # Adminni xabardor qilish
         try:
-            await router.bot.send_message(OWNER_CHAT_ID, f"Yangi buyurtma: user {message.from_user.id}\nProduct: {prod['name']} {prod['price']} so'm\nNick: {nick}\nOrderID backend: {res.get('id') if res else 'n/a'}")
-        except Exception:
-            pass
+            await router.bot.send_message(
+                OWNER_CHAT_ID,
+                f"📦 Yangi buyurtma:\n"
+                f"👤 User ID: {message.from_user.id}\n"
+                f"🛍 Mahsulot: {prod['name']} ({prod['price']} so‘m)\n"
+                f"🎮 Nick: {nick}\n"
+                f"🆔 OrderID (backend): {res.get('id') if res else 'n/a'}"
+            )
+        except Exception as e:
+            print(f"⚠️ Adminni ogohlantirishda xatolik: {e}")
     else:
-        await message.answer("Xatolik! Buyurtma yaratishda muammo bo'ldi.")
+        await message.answer("❌ Buyurtma yaratishda xatolik yuz berdi.")
+
     await state.clear()
