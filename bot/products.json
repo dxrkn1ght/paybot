@@ -1,0 +1,8 @@
+[
+  {"code": "coin_10", "type": "coin", "name": "10 coin", "price": 10000},
+  {"code": "coin_50", "type": "coin", "name": "50 coin", "price": 50000},
+  {"code": "coin_100", "type": "coin", "name": "100 coin", "price": 100000},
+  {"code": "rank_vip", "type": "rank", "name": "VIP", "price": 15000},
+  {"code": "rank_god", "type": "rank", "name": "GOD", "price": 17000},
+  {"code": "rank_ultimate", "type": "rank", "name": "ULTIMATE", "price": 20000}
+]

@@ -1,69 +1,57 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
+from aiogram.types import Message, ContentType
 from states import TopUpStates
-from api import create_payment  # sizning API funksiyangiz bo'lsa ishlaydi
-from config import OWNER_CHAT_ID
-import io
+from keyboards import main_menu
+from db import get_or_create_user, create_payment, set_payment_screenshot, add_balance
+from config import ADMIN_CARD, OWNER_CHAT_ID
 
 router = Router()
 
-@router.message(lambda m: m.text == "💳 Hisobni to'ldirish")
-async def topup_start(message: types.Message, state: FSMContext):
-    await message.answer("To'ldirmoqchi bo'lgan summani kiriting (min 10000, max 1000000):")
-    await state.set_state(TopUpStates.entering_amount)
+@router.message(F.text == "💳 Hisobni to'ldirish")
+async def start_topup(message: Message):
+    await message.answer("Hisobni to'ldirmoqchi bo'lgan summani kiriting (min 10000, max 1000000):")
+    await TopUpStates.waiting_amount.set()
 
-@router.message(TopUpStates.entering_amount)
-async def topup_amount(message: types.Message, state: FSMContext):
+@router.message(TopUpStates.waiting_amount)
+async def received_amount(message: Message, state: FSMContext):
     try:
-        amount = int(message.text.replace(" ", ""))
-    except ValueError:
-        await message.answer("Iltimos faqat raqam kiriting.")
+        amt = int(message.text.strip())
+    except Exception:
+        await message.answer("Faqat son kiriting (misol: 10000).")
         return
-
-    if amount < 10000 or amount > 1000000:
-        await message.answer("Summa chegaradan tashqarida.")
+    if amt < 10000 or amt > 1000000:
+        await message.answer("Summani tekshiring: min 10000, max 1000000.")
         return
+    # create payment record
+    pid = create_payment(message.from_user.id, amt)
+    await state.update_data(payment_id=pid, amount=amt)
+    # show payment card info
+    await message.answer(f"To'lovni quyidagi karta orqali qiling:\n{ADMIN_CARD}\n\nTo'lov qilgandan so'ng, tasdiqlash uchun skrinshot yuboring (rasm yoki fayl).")
+    await TopUpStates.waiting_screenshot.set()
 
-    await state.update_data(amount=amount)
-    await message.answer("To'lov skrinshotini yuboring.")
-    await state.set_state(TopUpStates.waiting_screenshot)
-
-@router.message(TopUpStates.waiting_screenshot, F.photo)
-async def topup_screenshot(message: types.Message, state: FSMContext):
+@router.message(TopUpStates.waiting_screenshot, F.content_type.in_([ContentType.PHOTO, ContentType.DOCUMENT]))
+async def receive_screenshot(message: Message, state: FSMContext):
     data = await state.get_data()
-    amount = data.get("amount")
-    photo = message.photo[-1]
-
-    file = io.BytesIO()
-    await photo.download(destination=file)
-    file.seek(0)
-
-    files = {"screenshot": ("screenshot.jpg", file)}
-
-    payload = {
-        "order": 0,
-        "sender_account": f"tg:{message.from_user.id}",
-        "amount": amount
-    }
-
-    ok, res = create_payment(payload, files=files)  # sizning API funksiyangiz
-
-    if ok:
-        await message.answer("Skrinshot qabul qilindi. Admin tasdiqlashini kuting.")
-        # **To'g'ri usul**: message.bot.send_message
-        try:
-            if OWNER_CHAT_ID and OWNER_CHAT_ID != 0:
-                await message.bot.send_message(
-                    OWNER_CHAT_ID,
-                    f"Yangi to'lov skrinshoti:\nUser ID: {message.from_user.id}\nAmount: {amount} so'm"
-                )
-        except Exception as e:
-            # adminga yuborolmasa - logga yozing
-            await message.answer("⚠️ Adminga xabar yuborishda muammo yuz berdi.")
-            import logging
-            logging.exception("Adminga yuborishda xato:")
-
+    pid = data.get("payment_id")
+    if not pid:
+        await message.answer("To'lov topilmadi, boshqatdan urinib ko'ring.")
+        await state.clear()
+        return
+    # get file_id (photo or document)
+    if message.photo:
+        file_id = message.photo[-1].file_id
+    elif message.document:
+        file_id = message.document.file_id
     else:
-        await message.answer("Xatolik! To'lovni yuborishda muammo.")
-
+        await message.answer("Iltimos rasm yoki fayl yuboring.")
+        return
+    set_payment_screenshot(pid, file_id)
+    await message.answer("Skrinshot qabul qilindi. Admin sizning to'lovingizni tekshiradi va tasdiqlaydi.")
+    # notify admin
+    try:
+        await router.bot.send_message(OWNER_CHAT_ID, f"📥 New payment #{pid}\nUser: {message.from_user.id}\nAmount: {data.get('amount')} so'm")
+        await router.bot.send_photo(OWNER_CHAT_ID, file_id, caption=f"Payment #{pid} by {message.from_user.id}")
+    except Exception:
+        pass
     await state.clear()

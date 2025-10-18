@@ -1,6 +1,11 @@
-from rest_framework import viewsets
-from .models import Payment
-from .serializers import PaymentSerializer
-class PaymentViewSet(viewsets.ModelViewSet):
-    queryset = Payment.objects.all().order_by('-id')
+from rest_framework import generics
+from .models import Order, Payment
+from .serializers import OrderSerializer, PaymentSerializer
+
+class OrderCreateView(generics.CreateAPIView):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+
+class PaymentCreateView(generics.CreateAPIView):
+    queryset = Payment.objects.all()
     serializer_class = PaymentSerializer

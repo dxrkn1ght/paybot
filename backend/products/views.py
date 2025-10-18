@@ -1,6 +1,7 @@
-from rest_framework import viewsets
+from rest_framework import generics
 from .models import Product
 from .serializers import ProductSerializer
-class ProductViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Product.objects.all().order_by('id')
+
+class ProductList(generics.ListAPIView):
+    queryset = Product.objects.all().order_by('type','price')
     serializer_class = ProductSerializer
