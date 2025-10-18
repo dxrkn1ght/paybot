@@ -13,7 +13,7 @@ async def start_topup(message: Message):
     await message.answer("Hisobni to'ldirmoqchi bo'lgan summani kiriting (min 10000, max 1000000):")
     await TopUpStates.waiting_amount.set()
 
-@router.message(TopUpStates.waiting_amount)
+@router.message(TopUpStates.entering_amount)
 async def received_amount(message: Message, state: FSMContext):
     try:
         amt = int(message.text.strip())
