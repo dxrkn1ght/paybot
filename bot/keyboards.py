@@ -1,93 +1,122 @@
 from aiogram.types import (
-    ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton
+    InlineKeyboardMarkup, InlineKeyboardButton,
+    ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 )
 
-
-# --- USER ASOSIY MENU ---
-def main_menu(lang="uz"):
-    """Foydalanuvchi uchun asosiy menyu"""
-    if lang == "ru":
-        b_products = "🎒 Продукты"
-        b_topup = "💳 Пополнить баланс"
-        b_orders = "📦 Мои заказы"
-        b_balance = "💰 Мой баланс"
-        b_settings = "⚙️ Язык / Настройки"
-    else:
-        b_products = "🎒 Mahsulotlar"
-        b_topup = "💳 Hisobni to'ldirish"
-        b_orders = "📦 Buyurtmalarim"
-        b_balance = "💰 Mening balansim"
-        b_settings = "⚙️ Til / Sozlamalar"
-
+# Til tanlash (reply keyboard)
+def choose_language_kb():
     kb = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=b_products), KeyboardButton(text=b_topup)],
-            [KeyboardButton(text=       b_orders), KeyboardButton(text=b_balance)],
-            [KeyboardButton(text=b_settings)]
+            [KeyboardButton(text="🇺🇿 O‘zbekcha"), KeyboardButton(text="🇷🇺 Русский")]
         ],
-        resize_keyboard=True
+        resize_keyboard=True,
+        one_time_keyboard=True
     )
     return kb
 
-# --- MAHSULOT TURLARI ---
-def products_type_kb(lang: str = "uz") -> InlineKeyboardMarkup:
-    """Coin yoki Rank turini tanlash"""
-    if lang == "ru":
-        c1 = "Монеты"
-        c2 = "Ранги"
+# Asosiy menu
+def main_menu(lang: str = "uz"):
+    if lang == "uz":
+        buttons = [
+            [KeyboardButton(text="🎒 Mahsulotlar")],
+            [KeyboardButton(text="💳 Hisobni to'ldirish")],
+            [KeyboardButton(text="🛒 Buyurtmalarim")],
+            [KeyboardButton(text="💰 Mening balansim")],
+            [KeyboardButton(text="⚙️ Til / Sozlamalar")]
+        ]
     else:
-        c1 = "💰 Coin (coinlar)"
-        c2 = "⭐ Rank (ranklar)"
+        buttons = [
+            [KeyboardButton(text="🎒 Продукты")],
+            [KeyboardButton(text="💳 Пополнить счет")],
+            [KeyboardButton(text="🛒 Мои заказы")],
+            [KeyboardButton(text="💰 Мой баланс")],
+            [KeyboardButton(text="⚙️ Язык / Настройки")]
+        ]
+    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
+# Mahsulot turlari (inline)
+def products_type_kb(lang: str = "uz"):
+    if lang == "ru":
+        c1, c2 = "Монеты", "Ранги"
+    else:
+        c1, c2 = "💰 Coin (coinlar)", "⭐ Rank (ranklar)"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=c1, callback_data="type_coin"),
+         InlineKeyboardButton(text=c2, callback_data="type_rank")]
+    ])
+
+# Products inline list (dynamik)
+def products_inline(products):
+    kb = InlineKeyboardMarkup(inline_keyboard=[])
+    for p in products:
+        kb.inline_keyboard.append(
+            [InlineKeyboardButton(text=f"{p['name']} — {p['price']:,} so'm", callback_data=f"buy_{p['code']}")]
+        )
+    return kb
+
+
+def admin_menu():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Pending Top-ups", callback_data="admin:pending_topups")],
+        [InlineKeyboardButton(text="🛒 Pending Orders", callback_data="admin:pending_orders")],
+        [InlineKeyboardButton(text="📦 Manage Products", callback_data="admin:products")],
+        [InlineKeyboardButton(text="👥 Users", callback_data="admin:users")],
+    ])
+
+
+# ===================== PRODUCT MENU =====================
+
+def product_menu(products):
+    buttons = []
+    for p in products:
+        buttons.append([InlineKeyboardButton(text=f"{p['name']} — {p['price']:,} so‘m", callback_data=f"product_{p['code']}")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# ===================== PAYMENT =====================
+
+
+def confirm_admin_kb(pid: int = 0, type_: str = "topup") -> InlineKeyboardMarkup:
+    """
+    Admin uchun tasdiqlash/rad etish tugmalari.
+    callback_data format: "admin:<action>:<type>:<id>"
+    Misol: "admin:approve:topup:12" yoki "admin:decline:order:5"
+    """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text=c1, callback_data="type_coin"),
-                InlineKeyboardButton(text=c2, callback_data="type_rank")
+                InlineKeyboardButton(
+                    text="✅ Tasdiqlash / Approve",
+                    callback_data=f"admin:approve:{type_}:{pid}"
+                ),
+                InlineKeyboardButton(
+                    text="❌ Rad etish / Reject",
+                    callback_data=f"admin:decline:{type_}:{pid}"
+                ),
             ]
         ]
     )
+# ===================== PRODUCT CRUD (ADMIN) =====================
 
-
-# --- MAHSULOTLAR RO‘YXATI ---
-def products_inline(products: list) -> InlineKeyboardMarkup:
-    """Mahsulotlarni InlineKeyboard shaklida chiqarish"""
-    kb = InlineKeyboardMarkup(inline_keyboard=[])
-    for p in products:
-        name = p.get("name", "Noma'lum")
-        price = p.get("price", 0)
-        code = p.get("code", "none")
-        kb.inline_keyboard.append([
-            InlineKeyboardButton(
-                text=f"{name} — {price} so'm",
-                callback_data=f"buy_{code}"
-            )
-        ])
-    return kb
-
-
-# --- ADMIN TASDIQLASH TUGMALARI ---
-def confirm_admin_kb() -> InlineKeyboardMarkup:
-    """Admin uchun tasdiqlash yoki rad etish"""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Tasdiqlash / Approve", callback_data="admin_approve")],
-            [InlineKeyboardButton(text="❌ Rad etish / Reject", callback_data="admin_reject")]
+def product_crud_kb(pid):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✏️ Tahrirlash", callback_data=f"product:edit:{pid}"),
+            InlineKeyboardButton(text="🗑 O‘chirish", callback_data=f"product:delete:{pid}")
         ]
-    )
+    ])
 
 
-# --- ADMIN PANELI ---
-def admin_menu() -> InlineKeyboardMarkup:
-    """Admin menyusi (InlineKeyboard)"""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="➕ Mahsulot qo‘shish", callback_data="add_product")],
-            [InlineKeyboardButton(text="📦 Mahsulotlar ro‘yxati", callback_data="show_products")],
-            [InlineKeyboardButton(text="💳 Pending to‘lovlar", callback_data="pending_topups")],
-            [InlineKeyboardButton(text="🛍 Pending buyurtmalar", callback_data="pending_orders")],
-            [InlineKeyboardButton(text="💰 Balansni o‘zgartirish", callback_data="edit_balance")],
-            [InlineKeyboardButton(text="🚪 Chiqish", callback_data="exit_admin")]
-        ]
-    )
+def add_product_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Mahsulot qo‘shish", callback_data="product:add")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin:menu")]
+    ])
+
+
+# ===================== USERS =====================
+
+def user_balance_kb(uid):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💰 Balansni o‘zgartirish", callback_data=f"user:balance:{uid}")],
+    ])
