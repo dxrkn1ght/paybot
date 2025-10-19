@@ -1,21 +1,33 @@
 from aiogram import Router, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from db import get_balance  # balansni olish uchun db.py dan import
 
 router = Router()
 
+
+# =====================================================
+# ✅ Asosiy menyu ReplyKeyboard
+# =====================================================
 def main_reply_kb():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("💰 Coin"), KeyboardButton("🏆 Rank"))
     kb.add(KeyboardButton("💳 Hisobni to'ldirish"), KeyboardButton("📦 Buyurtmalarim"))
+    kb.add(KeyboardButton("💰 Mening balansim"))  # Balans tugmasi
     kb.add(KeyboardButton("⚙ Til / Settings"))
     return kb
 
-# /start yoki boshqa joydan asosiy menyu olish uchun
+
+# =====================================================
+# /start yoki boshqa joydan asosiy menyu olish
+# =====================================================
 @router.message(commands=["start"])
 async def cmd_start(message: types.Message):
     await message.answer("Xush kelibsiz! Asosiy menyu:", reply_markup=main_reply_kb())
 
-# Agar foydalanuvchi asosiy menyudan Coin tugmasini bosadi (ReplyKeyboard tugma)
+
+# =====================================================
+# 💰 Coin tugmasi
+# =====================================================
 @router.message(lambda m: m.text == "💰 Coin")
 async def coin_open(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -23,10 +35,12 @@ async def coin_open(message: types.Message):
         [InlineKeyboardButton(text="Silver Coin", callback_data="coin:silver")],
         [InlineKeyboardButton(text="⬅ Orqaga", callback_data="back:main")]
     ])
-    # reply_markup Inline — yangi xabarda ko'rsatamiz (reply keyboardni saqlash uchun `reply_markup` ni o'zgartirmaymiz)
     await message.answer("Coin turini tanlang:", reply_markup=kb)
 
-# Agar foydalanuvchi Rank tugmasini bosadi
+
+# =====================================================
+# 🏆 Rank tugmasi
+# =====================================================
 @router.message(lambda m: m.text == "🏆 Rank")
 async def rank_open(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -36,23 +50,40 @@ async def rank_open(message: types.Message):
     ])
     await message.answer("Rank turini tanlang:", reply_markup=kb)
 
-# Callback query handlerlar
+
+# =====================================================
+# 💰 Balansni ko‘rsatish
+# =====================================================
+@router.message(lambda m: m.text == "💰 Mening balansim")
+async def my_balance(message: types.Message):
+    balance = get_balance(message.from_user.id)
+    await message.answer(f"💰 Sizning balansingiz: {balance:,} so‘m")
+
+
+# =====================================================
+# Callback query: Coin
+# =====================================================
 @router.callback_query(lambda c: c.data and c.data.startswith("coin:"))
 async def handle_coin_callback(callback: types.CallbackQuery):
-    await callback.answer()  # to'siqni olib tashlash (notification)
+    await callback.answer()  # notificationni o‘chirish
     _, coin_type = callback.data.split(":", 1)
-    # bu yerda coin_type bo'yicha ish yuritish mumkin
     await callback.message.answer(f"Siz tanladingiz: Coin — {coin_type.capitalize()}")
 
+
+# =====================================================
+# Callback query: Rank
+# =====================================================
 @router.callback_query(lambda c: c.data and c.data.startswith("rank:"))
 async def handle_rank_callback(callback: types.CallbackQuery):
     await callback.answer()
     _, rank_type = callback.data.split(":", 1)
     await callback.message.answer(f"Siz tanladingiz: Rank — {rank_type.capitalize()}")
 
-# Orqaga tugmasi: asosiy menyuni qaytarish
+
+# =====================================================
+# Callback query: Orqaga (Asosiy menyu)
+# =====================================================
 @router.callback_query(lambda c: c.data == "back:main")
 async def handle_back_main(callback: types.CallbackQuery):
     await callback.answer()
-    # edit qilmaysiz, balki yangi xabarga asosiy reply keyboardni yuborasiz
     await callback.message.answer("Asosiy menyu:", reply_markup=main_reply_kb())

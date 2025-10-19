@@ -2,10 +2,10 @@ from aiogram import Router, types, F
 from aiogram.types import Message
 from keyboards import main_menu
 from db import get_or_create_user, set_user_lang
+from db import get_balance
 from config import DEFAULT_LANG
 
 router = Router()
-
 
 @router.message(F.text == "/start")
 async def cmd_start(message: Message):
@@ -25,7 +25,7 @@ async def lang_set(call: types.CallbackQuery):
     set_user_lang(call.from_user.id, lang)
     kb = main_menu(lang)
     txt = (
-        "Salom! SunLite botga xush kelibsiz. /products va /topup dan foydalaning."
+        "Salom! SunLite botga xush kelibsiz. Menyudan barcha xizmatlarimizni korishingiz mumkin!."
         if lang == "uz"
         else "Привет! Добро пожаловать в SunLite. Используйте меню."
     )

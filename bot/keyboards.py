@@ -5,27 +5,30 @@ from aiogram.types import (
 
 
 # --- USER ASOSIY MENU ---
-def main_menu(lang: str = "uz") -> ReplyKeyboardMarkup:
+def main_menu(lang="uz"):
     """Foydalanuvchi uchun asosiy menyu"""
     if lang == "ru":
         b_products = "🎒 Продукты"
         b_topup = "💳 Пополнить баланс"
         b_orders = "📦 Мои заказы"
+        b_balance = "💰 Мой баланс"
         b_settings = "⚙️ Язык / Настройки"
     else:
         b_products = "🎒 Mahsulotlar"
         b_topup = "💳 Hisobni to'ldirish"
         b_orders = "📦 Buyurtmalarim"
+        b_balance = "💰 Mening balansim"
         b_settings = "⚙️ Til / Sozlamalar"
 
-    return ReplyKeyboardMarkup(
+    kb = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=b_products), KeyboardButton(text=b_topup)],
-            [KeyboardButton(text=b_orders), KeyboardButton(text=b_settings)]
+            [KeyboardButton(text=       b_orders), KeyboardButton(text=b_balance)],
+            [KeyboardButton(text=b_settings)]
         ],
         resize_keyboard=True
     )
-
+    return kb
 
 # --- MAHSULOT TURLARI ---
 def products_type_kb(lang: str = "uz") -> InlineKeyboardMarkup:

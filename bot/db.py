@@ -1,49 +1,44 @@
 import sqlite3
-import os
-from pathlib import Path
 
-# --- Paths ---
-BASE = Path(__file__).parent
-DB_PATH = BASE / "storage.db"
+DB_NAME = "bot.db"
 
 
-# --- Connection ---
-def get_conn():
-    os.makedirs(BASE, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+def get_db():
+    conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-conn = get_conn()
-
-
-# --- Initialize Database ---
+# =====================================================
+# 🧩 INIT DATABASE
+# =====================================================
 def init_db():
+    conn = get_db()
     c = conn.cursor()
-    # Users
-    c.execute('''
+
+    # USERS jadvali
+    c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tg_id INTEGER UNIQUE,
-            nick TEXT,
-            lang TEXT DEFAULT "uz",
+            user_tg INTEGER PRIMARY KEY,
+            lang TEXT DEFAULT 'uz',
             balance INTEGER DEFAULT 0
         )
-    ''')
-    # Payments (Top-ups)
-    c.execute('''
+    """)
+
+    # PAYMENTS jadvali
+    c.execute("""
         CREATE TABLE IF NOT EXISTS payments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_tg INTEGER,
             amount INTEGER,
-            screenshot_file_id TEXT,
+            screenshot TEXT,
             status TEXT DEFAULT 'pending',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            FOREIGN KEY(user_tg) REFERENCES users(user_tg)
         )
-    ''')
-    # Orders (Purchases)
-    c.execute('''
+    """)
+
+    # ORDERS jadvali
+    c.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_tg INTEGER,
@@ -52,165 +47,152 @@ def init_db():
             details TEXT,
             price INTEGER,
             status TEXT DEFAULT 'pending',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            FOREIGN KEY(user_tg) REFERENCES users(user_tg)
         )
-    ''')
+    """)
+
     conn.commit()
-
-
-init_db()
-
-# =====================================================
-# 🧍 USER HELPERS
-# =====================================================
-
-def get_or_create_user(tg_id):
-    c = conn.cursor()
-    c.execute('SELECT * FROM users WHERE tg_id=?', (tg_id,))
-    r = c.fetchone()
-    if r:
-        return dict(r)
-    c.execute('INSERT INTO users(tg_id) VALUES(?)', (tg_id,))
-    conn.commit()
-    c.execute('SELECT * FROM users WHERE tg_id=?', (tg_id,))
-    return dict(c.fetchone())
-
-
-def set_user_nick(tg_id, nick):
-    c = conn.cursor()
-    c.execute('UPDATE users SET nick=? WHERE tg_id=?', (nick, tg_id))
-    conn.commit()
-
-
-def set_user_lang(tg_id, lang):
-    c = conn.cursor()
-    c.execute('UPDATE users SET lang=? WHERE tg_id=?', (lang, tg_id))
-    conn.commit()
-
-
-def get_balance(tg_id):
-    c = conn.cursor()
-    c.execute('SELECT balance FROM users WHERE tg_id=?', (tg_id,))
-    r = c.fetchone()
-    return r['balance'] if r else 0
-
-
-def add_balance(tg_id, amt):
-    c = conn.cursor()
-    c.execute('UPDATE users SET balance = balance + ? WHERE tg_id=?', (amt, tg_id))
-    conn.commit()
-
-
-def deduct_balance(tg_id, amt):
-    bal = get_balance(tg_id)
-    if bal < amt:
-        return False
-    c = conn.cursor()
-    c.execute('UPDATE users SET balance = balance - ? WHERE tg_id=?', (amt, tg_id))
-    conn.commit()
-    return True
+    conn.close()
 
 
 # =====================================================
-# 💰 PAYMENTS (TOP-UPS)
+# 👤 USERS
 # =====================================================
-
-def create_payment(tg_id, amt):
+def get_or_create_user(user_tg):
+    conn = get_db()
     c = conn.cursor()
-    c.execute('INSERT INTO payments(user_tg, amount) VALUES(?, ?)', (tg_id, amt))
+    c.execute("SELECT * FROM users WHERE user_tg=?", (user_tg,))
+    user = c.fetchone()
+    if not user:
+        c.execute("INSERT INTO users (user_tg) VALUES (?)", (user_tg,))
+        conn.commit()
+        c.execute("SELECT * FROM users WHERE user_tg=?", (user_tg,))
+        user = c.fetchone()
+    conn.close()
+    return dict(user)
+
+
+def set_user_lang(user_tg, lang):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('UPDATE users SET lang=? WHERE user_tg=?', (lang, user_tg))
     conn.commit()
-    return c.lastrowid
+    conn.close()
+
+
+def get_balance(user_tg):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT balance FROM users WHERE user_tg=?", (user_tg,))
+    row = c.fetchone()
+    conn.close()
+    return row["balance"] if row else 0
+
+
+def add_balance(user_tg, amount):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET balance = balance + ? WHERE user_tg=?", (amount, user_tg))
+    conn.commit()
+    conn.close()
+
+
+# =====================================================
+# 💳 PAYMENTS
+# =====================================================
+def create_payment(user_tg, amount):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT INTO payments(user_tg, amount) VALUES(?, ?)", (user_tg, amount))
+    conn.commit()
+    pid = c.lastrowid
+    conn.close()
+    return pid
 
 
 def set_payment_screenshot(pid, file_id):
+    conn = get_db()
     c = conn.cursor()
-    c.execute('UPDATE payments SET screenshot_file_id=? WHERE id=?', (file_id, pid))
+    c.execute("UPDATE payments SET screenshot=? WHERE id=?", (file_id, pid))
     conn.commit()
+    conn.close()
 
 
 def set_payment_status(pid, status):
+    conn = get_db()
     c = conn.cursor()
-    c.execute('UPDATE payments SET status=? WHERE id=?', (status, pid))
+    c.execute("UPDATE payments SET status=? WHERE id=?", (status, pid))
     conn.commit()
+    conn.close()
 
 
 def get_pending_payments():
+    conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT * FROM payments WHERE status="pending" ORDER BY id DESC')
-    return [dict(r) for r in c.fetchall()]
-
-
-def get_all_payments():
-    c = conn.cursor()
-    c.execute('SELECT * FROM payments ORDER BY id DESC')
-    return [dict(r) for r in c.fetchall()]
+    c.execute("SELECT * FROM payments WHERE status='pending' ORDER BY id DESC")
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
 
 
 # =====================================================
 # 🛒 ORDERS
 # =====================================================
-
-def create_order(tg_id, item_type, item_code, details, price):
+def create_order(user_tg, item_type, item_code, details, price):
+    conn = get_db()
     c = conn.cursor()
     c.execute('INSERT INTO orders(user_tg, item_type, item_code, details, price) VALUES(?,?,?,?,?)',
-              (tg_id, item_type, item_code, details, price))
+              (user_tg, item_type, item_code, details, price))
     conn.commit()
-    return c.lastrowid
+    oid = c.lastrowid
+    conn.close()
+    return oid
 
 
 def set_order_status(order_id, status):
+    conn = get_db()
     c = conn.cursor()
     c.execute('UPDATE orders SET status=? WHERE id=?', (status, order_id))
     conn.commit()
+    conn.close()
 
 
-def get_user_orders(tg_id):
+def get_user_orders(user_tg):
+    conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT * FROM orders WHERE user_tg=? ORDER BY id DESC', (tg_id,))
-    return [dict(r) for r in c.fetchall()]
+    c.execute('SELECT * FROM orders WHERE user_tg=? ORDER BY id DESC', (user_tg,))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
 
 
 def get_pending_orders():
+    conn = get_db()
     c = conn.cursor()
     c.execute('SELECT * FROM orders WHERE status="pending" ORDER BY id DESC')
-    return [dict(r) for r in c.fetchall()]
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
 
 
 # =====================================================
-# 🧩 ADMIN COMPATIBILITY HELPERS
+# 🧩 ADMIN HELPERS
 # =====================================================
-
-# Aliases for older handler imports
 def get_pending_topups():
-    """Alias for get_pending_payments()"""
     return get_pending_payments()
 
 
-def get_all_pending_orders():
-    """Alias for get_pending_orders()"""
-    return get_pending_orders()
-
-
-def get_all_pending_topups():
-    """Alias for get_pending_topups()"""
-    return get_pending_topups()
-
-
 def approve_topup(pid):
-    """Approve top-up and set status to approved"""
     set_payment_status(pid, "approved")
 
 
 def approve_order(order_id):
-    """Approve order and set status to approved"""
     set_order_status(order_id, "approved")
 
 
-def update_balance(tg_id, amount):
-    """Add balance to user"""
-    add_balance(tg_id, amount)
+def update_balance(user_tg, amount):
+    add_balance(user_tg, amount)
 
 
-def get_user_balance(tg_id):
-    """Get user current balance"""
-    return get_balance(tg_id)
+def get_user_balance(user_tg):
+    return get_balance(user_tg)

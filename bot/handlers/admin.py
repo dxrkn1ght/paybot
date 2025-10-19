@@ -6,7 +6,7 @@ from aiogram.fsm.state import State, StatesGroup
 from keyboards import admin_menu, confirm_admin_kb
 from config import OWNER_CHAT_ID
 from db import (
-    get_all_pending_orders, get_all_pending_topups,
+    get_pending_orders, get_pending_topups,
     approve_order, approve_topup, update_balance,
     get_user_balance
 )
